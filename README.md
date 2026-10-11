@@ -1,6 +1,7 @@
 # SQDesk
 
 A minimal desktop SQL client with an AI assistant.
+- [Download](#download)
 - [Stack](#stack)
 - [Requirements](#requirements)
 - [Set up and run](#set-up-and-run)
@@ -8,6 +9,26 @@ A minimal desktop SQL client with an AI assistant.
 - [Checks](#checks)
 - [Project structure](#project-structure)
 - [Architecture](#architecture)
+
+## Download
+
+Installers for macOS (Apple Silicon and Intel), Windows and Linux are attached to each release:
+
+**[Download the latest release](https://github.com/febritecno/sqdesk/releases/latest)** · [all releases](https://github.com/febritecno/sqdesk/releases)
+
+| OS      | File                                                    |
+| ------- | ------------------------------------------------------- |
+| macOS   | `SQDesk_<version>_aarch64.dmg` (Apple Silicon) or `SQDesk_<version>_x64.dmg` (Intel) |
+| Windows | `SQDesk_<version>_x64-setup.exe`                        |
+| Linux   | `.AppImage`, `.deb` or `.rpm`                           |
+
+### macOS: "SQDesk.app is damaged" or "cannot be verified"
+
+The builds are ad-hoc signed, not notarized by Apple, so Gatekeeper blocks them after download. Either open **System Settings → Privacy & Security** and choose **Open Anyway**, or clear the quarantine flag:
+
+```bash
+xattr -cr /Applications/SQDesk.app
+```
 
 ## Stack
 
@@ -55,7 +76,7 @@ make                    # install dependencies and start the desktop app
 4. Tauri runs `pnpm dev` first, which serves the frontend at `http://localhost:1420`.
 5. Cargo compiles the Rust workspace and launches the `sqdesk` debug binary.
 
-The first Rust build compiles about a thousand crates and takes several minutes. Later builds are incremental. The frontend hot-reloads through Vite, and Tauri rebuilds the binary when Rust sources under `src-tauri` or `crates/` change.
+The first Rust build compiles about a thousand crates and takes several minutes. Later builds are incremental. The dev profile uses `debug = "line-tables-only"` (see `Cargo.toml`), which keeps an incremental rebuild at around 20 seconds instead of about 3 minutes; set `debug = true` under `[profile.dev]` locally when you need to inspect variables in a debugger. Switching between `make dev` and `make dev-fast` changes the feature set and forces a recompile, so stick to one. The frontend hot-reloads through Vite, and Tauri rebuilds the binary when Rust sources under `src-tauri` or `crates/` change.
 
 ### macOS signing prompt
 
@@ -97,6 +118,15 @@ make clean     # remove Rust build artifacts
 ```
 
 `make package` runs the frontend build first and writes the installers under `target/release/bundle/`.
+
+### Release
+
+Pushing a tag that matches `v*` runs `.github/workflows/release.yml`, which builds the installers for every platform and attaches them to a draft GitHub release. Keep the tag in step with the app version in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, then publish the draft:
+
+```bash
+git tag v0.6.40
+git push origin v0.6.40
+```
 
 ## Checks
 

@@ -46,6 +46,12 @@ mysql_async = { git = "https://github.com/zipg/mysql_async.git", rev = "4a9e60a6
 # is available in upstream tiberius.
 tiberius = { path = "vendor/tiberius" }
 
+[profile.dev]
+# Full debuginfo made the `sqdesk` crate take ~3 minutes per incremental
+# rebuild (about 7 seconds with line tables). Backtraces stay resolvable;
+# set `debug = true` locally when you need to inspect variables in a debugger.
+debug = "line-tables-only"
+
 [profile.dev.package."*"]
 # Dependencies are never breakpoint-inspected in dev; line tables keep
 # backtraces resolvable while shrinking dev/test build time and artifacts.
