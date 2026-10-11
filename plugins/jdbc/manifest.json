@@ -1,0 +1,16 @@
+{
+  "id": "jdbc",
+  "name": "SQDesk JDBC Plugin",
+  "version": "0.1.43",
+  "protocol_version": 1,
+  "description": "Adds optional JDBC driver support to SQDesk.",
+  "executable": "bin/sqdesk-jdbc-plugin",
+  "drivers": [
+    {
+      "id": "jdbc",
+      "label": "JDBC",
+      "kind": "external",
+      "database_type": "jdbc"
+    }
+  ]
+}

@@ -1,0 +1,617 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { readCascadeCss } from "./cascadeCss";
+
+const globalsCss = readCascadeCss();
+const dialogContentSource = readFileSync(new URL("../../components/ui/dialog/DialogContent.vue", import.meta.url), "utf8");
+const dialogScrollContentSource = readFileSync(new URL("../../components/ui/dialog/DialogScrollContent.vue", import.meta.url), "utf8");
+const dialogOverlaySource = readFileSync(new URL("../../components/ui/dialog/DialogOverlay.vue", import.meta.url), "utf8");
+const codeSnapshotDialogSource = readFileSync(new URL("../../components/codeSnapshot/CodeSnapshotDialog.vue", import.meta.url), "utf8");
+const dataTransferDialogSource = readFileSync(new URL("../../components/transfer/DataTransferDialog.vue", import.meta.url), "utf8");
+const dataGridColumnHeaderSource = readFileSync(new URL("../../components/grid/DataGridColumnHeader.vue", import.meta.url), "utf8");
+const ddlViewDialogSource = readFileSync(new URL("../../components/objects/DdlViewDialog.vue", import.meta.url), "utf8");
+const schemaDiagramDialogSource = readFileSync(new URL("../../components/diagram/SchemaDiagramDialog.vue", import.meta.url), "utf8");
+const connectionDialogSource = readFileSync(new URL("../../components/connection/ConnectionDialog.vue", import.meta.url), "utf8");
+const connectionTreeSource = readFileSync(new URL("../../components/sidebar/ConnectionTree.vue", import.meta.url), "utf8");
+const activeConnectionFilterSource = readFileSync(new URL("../../components/sidebar/ActiveConnectionFilterButton.vue", import.meta.url), "utf8");
+const driverStoreDialogSource = readFileSync(new URL("../../components/config/DriverStoreDialog.vue", import.meta.url), "utf8");
+const driverStoreAgentRowSource = readFileSync(new URL("../../components/config/DriverStoreAgentRow.vue", import.meta.url), "utf8");
+const tunnelProfileManagerSource = readFileSync(new URL("../../components/connection/TunnelProfileManager.vue", import.meta.url), "utf8");
+const editorSettingsDialogSource = readFileSync(new URL("../../components/editor/EditorSettingsDialog.vue", import.meta.url), "utf8");
+const switchSource = readFileSync(new URL("../../components/ui/switch/Switch.vue", import.meta.url), "utf8");
+const aiAssistantSource = readFileSync(new URL("../../components/editor/AiAssistant.vue", import.meta.url), "utf8");
+const dataGridSource = readFileSync(new URL("../../components/grid/DataGrid.vue", import.meta.url), "utf8");
+const dataGridTableInfoPanelsSource = readFileSync(new URL("../../components/grid/DataGridTableInfoPanels.vue", import.meta.url), "utf8");
+const tableStructureEditorSource = readFileSync(new URL("../../components/structure/TableStructureEditor.vue", import.meta.url), "utf8");
+const desktopIndexSource = readFileSync(new URL("../../../index.html", import.meta.url), "utf8");
+const connectionDialogLegacyCss = readFileSync(new URL("../../../public/connection-dialog-legacy.css", import.meta.url), "utf8");
+const legacyWebViewSource = readFileSync(new URL("../../lib/ui/legacyWebView.ts", import.meta.url), "utf8");
+const mainSource = readFileSync(new URL("../../main.ts", import.meta.url), "utf8");
+const tabPresentationSource = readFileSync(new URL("../../lib/tabs/tabPresentation.ts", import.meta.url), "utf8");
+const editorGroupTabBarSource = readFileSync(new URL("../../components/layout/EditorGroupTabBar.vue", import.meta.url), "utf8");
+const appTabBarCssSource = readFileSync(new URL("../../components/layout/appTabBar.css", import.meta.url), "utf8");
+const schemaDiffDialogSource = readFileSync(new URL("../../components/diff/SchemaDiffDialog.vue", import.meta.url), "utf8");
+
+describe("legacy WebView CSS fallbacks", () => {
+  it("keeps globals.css balanced and free of min-width media wrappers", () => {
+    // Production CSS minification rewrites `@media (min-width: ...)` into range
+    // syntax that legacy WebViews cannot parse, which silently disables any rule
+    // placed inside one. The html.sqdesk-legacy-webview class is the only gate, so
+    // no fallback rule may live inside a min-width media query. The brace check
+    // guards the unwrap refactors against dropping rule closers.
+    expect(globalsCss).not.toMatch(/@media \(min-width[^)]*\)\s*\{/);
+    // The Tailwind @source glob (../**/*.{vue,...}) contains a literal "*/",
+    // so it must be excluded before stripping comments.
+    const withoutComments = globalsCss.replace(/^@source .*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const opens = (withoutComments.match(/\{/g) ?? []).length;
+    const closes = (withoutComments.match(/\}/g) ?? []).length;
+    expect(opens).toBe(closes);
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .sm\\:flex-row");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .md\\:w-full");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .lg\\:grid-cols-6");
+  });
+
+  it("scopes component overrides to the runtime legacy WebView class", () => {
+    const fallbackStart = globalsCss.indexOf("html.sqdesk-legacy-webview .sm\\:block");
+    const tabsOverride = globalsCss.indexOf('html.sqdesk-legacy-webview [data-slot="tabs-trigger"]');
+    const splitpanesStart = globalsCss.indexOf("/* Splitpanes */");
+
+    expect(fallbackStart).toBeGreaterThan(-1);
+    expect(tabsOverride).toBeGreaterThan(fallbackStart);
+    expect(splitpanesStart).toBeGreaterThan(tabsOverride);
+    expect(globalsCss.slice(fallbackStart, splitpanesStart)).toContain('html.sqdesk-legacy-webview [data-slot="tabs-trigger"]');
+  });
+
+  it("falls back to the legacy viewport height when dynamic viewport units are unavailable", () => {
+    const fallback = globalsCss.indexOf("--sqdesk-viewport-height: 100vh;");
+    const supports = globalsCss.indexOf("@supports (height: 100dvh)");
+    const enhanced = globalsCss.indexOf("--sqdesk-viewport-height: min(100vh, 100dvh);");
+
+    expect(fallback).toBeGreaterThan(-1);
+    expect(supports).toBeGreaterThan(fallback);
+    expect(enhanced).toBeGreaterThan(supports);
+    expect(dialogContentSource).toContain("max-h-[calc(var(--sqdesk-viewport-height)-2rem)]");
+    expect(dialogScrollContentSource).toContain("max-h-[calc(var(--sqdesk-viewport-height)-6rem)]");
+    expect(connectionDialogSource).toContain("max-height: calc(var(--sqdesk-viewport-height) - 2rem);");
+  });
+
+  it("centralizes legacy dialog positioning and layout utility fallbacks", () => {
+    const fallbackStart = globalsCss.indexOf("html.sqdesk-legacy-webview .sm\\:block");
+    const splitpanesStart = globalsCss.indexOf("/* Splitpanes */");
+    const fallback = globalsCss.slice(fallbackStart, splitpanesStart);
+
+    expect(dialogContentSource).toContain('data-slot="dialog-positioner"');
+    expect(dialogScrollContentSource).toContain('data-slot="dialog-positioner"');
+    expect(fallback).toContain('[data-slot="dialog-positioner"]');
+    expect(fallback).toContain("z-index: var(--sqdesk-dialog-top-z-index, 50);");
+    expect(fallback).toContain("display: flex !important;");
+    expect(fallback).toContain("align-items: center !important;");
+    expect(fallback).toContain("justify-content: center !important;");
+    expect(fallback).toContain(".sm\\:grid-cols-2");
+    expect(fallback).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
+    expect(fallback).toContain(".sm\\:grid-cols-\\[minmax\\(0\\,200px\\)_minmax\\(0\\,1fr\\)\\]");
+    expect(fallback).toContain(".space-y-1\\.5 > * + *");
+    expect(fallback).toContain(".space-y-2\\.5 > * + *");
+    expect(fallback).toContain('[data-slot="dialog-content"].sqdesk-backup-dialog > *');
+    expect(fallback).toContain('[data-slot="dialog-content"].sqdesk-form-dialog');
+    expect(fallback).toContain('[data-slot="dialog-content"].sqdesk-form-dialog--lg');
+    expect(fallback).toContain("max-width: 45rem !important;");
+    expect(fallback).toContain('[data-slot="dialog-content"].sqdesk-form-dialog [data-slot="select-trigger"]');
+    expect(fallback).toContain("height: 2rem !important;");
+    expect(fallback).toContain('[data-slot="dialog-content"][class*="max-w-[min(720px"]');
+  });
+
+  it("uses a lightweight theme-aware mask without full-window filters", () => {
+    expect(dialogOverlaySource).not.toContain("backdrop-filter");
+    expect(dialogOverlaySource).toContain("bg-black/25");
+    expect(dialogOverlaySource).toContain("dark:bg-background/70");
+    expect(globalsCss).not.toContain("sqdesk-dialog-backdrop");
+    expect(globalsCss).not.toContain("filter: blur(4px);");
+  });
+
+  it("keeps the data transfer dialog width fallback scoped to legacy WebViews", () => {
+    expect(dataTransferDialogSource).toContain('class="sqdesk-transfer-dialog sm:max-w-[1120px] max-h-[80vh] flex flex-col overflow-hidden resize"');
+    expect(dataTransferDialogSource).toContain('width: "min(1120px, calc(100vw - 2rem))"');
+    expect(dataTransferDialogSource).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"].sqdesk-transfer-dialog[class~="max-w-sm"]');
+    expect(dataTransferDialogSource).toContain("max-width: calc(100vw - 2rem) !important;");
+    expect(dataTransferDialogSource).not.toContain("@media (min-width: 640px)");
+    expect(dataTransferDialogSource).not.toMatch(/^\s+width: calc\(100vw - 2rem\) !important;$/m);
+    expect(globalsCss).not.toContain(".sqdesk-transfer-dialog");
+  });
+
+  it("covers the transfer dialog footer through the global legacy rule", () => {
+    expect(dataTransferDialogSource).not.toContain('[data-slot="dialog-footer"]');
+  });
+
+  it("keeps the code snapshot dialog layout on the global legacy dialog fallbacks", () => {
+    expect(codeSnapshotDialogSource).toContain('class="flex max-h-[calc(var(--sqdesk-viewport-height)-2rem)] flex-col overflow-hidden border border-border !bg-background-solid text-foreground shadow-2xl !backdrop-blur-none sm:max-w-[860px]"');
+    expect(codeSnapshotDialogSource).not.toContain("sqdesk-legacy-webview");
+    expect(codeSnapshotDialogSource).not.toContain("@media");
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="sm:max-w-[860px]"]');
+  });
+
+  it("keeps the update dialog layout on the global legacy dialog fallbacks", () => {
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="sm:max-w-[700px]"]');
+  });
+
+  it("keeps the DDL dialog layout on the global legacy dialog fallbacks", () => {
+    expect(ddlViewDialogSource).toContain('class="sqdesk-ddl-view-dialog flex min-h-0 flex-col overflow-hidden sm:max-w-190"');
+    // The dialog content element is rendered through reka-ui's portal Teleport and
+    // never carries this component's scoped data-v attribute, so per-dialog rules
+    // (scoped or unscoped) are avoided; the global width table covers the dialog.
+    expect(ddlViewDialogSource).not.toContain("sqdesk-legacy-webview");
+    expect(ddlViewDialogSource).not.toContain("@media");
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class~="sm:max-w-190"]');
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"].sqdesk-ddl-view-dialog');
+  });
+
+  it("keeps the global dialog fallback block outside media queries", () => {
+    // Production minification rewrites `@media (min-width: ...)` into range syntax
+    // that legacy WebViews cannot parse, so this block must stay unwrapped.
+    const footerStart = globalsCss.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-footer"]');
+    const splitpanesStart = globalsCss.indexOf("/* Splitpanes */", footerStart);
+
+    expect(footerStart).toBeGreaterThan(-1);
+    expect(splitpanesStart).toBeGreaterThan(footerStart);
+    const dialogFallbackBlock = globalsCss.slice(footerStart, splitpanesStart);
+    expect(dialogFallbackBlock).toContain("flex-direction: row !important;");
+    expect(dialogFallbackBlock).toContain("justify-content: flex-end !important;");
+    expect(dialogFallbackBlock).toContain("max-width: 47.5rem !important;");
+    expect(dialogFallbackBlock).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="sm:max-w-[1120px]"]');
+    expect(dialogFallbackBlock).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="sm:max-w-[min(1180px,calc(100vw-32px))]"]');
+    expect(dialogFallbackBlock).not.toContain("@media");
+  });
+
+  it("covers unprefixed arbitrary dialog max-widths that lose to the generic cap", () => {
+    // Arbitrary max-w-* utilities live in @layer utilities and lose to the
+    // un-layered 24rem generic cap in every engine (multi-db execute dialog).
+    const multiDbDialogSource = readFileSync(new URL("../../components/editor/MultiDbExecuteDialog.vue", import.meta.url), "utf8");
+    expect(multiDbDialogSource).toContain("max-w-[min(1080px,calc(100vw-32px))]");
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="max-w-[min(1080px"]');
+    expect(globalsCss).toContain("max-width: min(1080px, calc(100vw - 2rem)) !important;");
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="max-w-[1800px]"]');
+  });
+
+  it("keeps the schema diagram dialog width covered by the legacy width fallbacks", () => {
+    // The toolbar is overflow-x-auto: when the legacy WebView clamps the dialog
+    // to the generic 24rem cap, the toolbar controls get cut off entirely.
+    expect(schemaDiagramDialogSource).toContain("sm:max-w-[94vw]");
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"][class*="sm:max-w-[94vw]"]');
+  });
+
+  it("keeps the schema diagram fullscreen mode above the generic legacy width cap", () => {
+    // Fullscreen drops the sm:max-w-* classes and relies on inline width, which
+    // the generic 24rem !important cap outranks in legacy WebViews — the dialog
+    // then renders 24rem wide and the canvas collapses to a sliver.
+    expect(schemaDiagramDialogSource).toContain("sqdesk-diagram-fullscreen");
+    const ruleStart = globalsCss.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-content"].sqdesk-diagram-fullscreen');
+    expect(ruleStart).toBeGreaterThan(globalsCss.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-content"][class~="max-w-sm"]'));
+    const rule = globalsCss.slice(ruleStart, globalsCss.indexOf("}", ruleStart));
+    expect(rule).toContain("max-width: none !important;");
+    expect(rule).toContain("width: calc(100vw - 2rem) !important;");
+    expect(rule).toContain("var(--sqdesk-viewport-height)");
+  });
+
+  it("allows the DDL viewer to resize beyond the default legacy dialog width", () => {
+    const ruleStart = globalsCss.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-content"].sqdesk-ddl-view-dialog');
+    expect(ruleStart).toBeGreaterThan(-1);
+    expect(globalsCss.slice(ruleStart, globalsCss.indexOf("}", ruleStart))).toContain("max-width: calc(100vw - 32px) !important;");
+  });
+
+  it("uses an explicit tooltip copy-button hover color in legacy WebViews", () => {
+    expect(dataGridColumnHeaderSource).toContain("data-column-header-copy-name");
+    expect(dataGridColumnHeaderSource).toContain("html.sqdesk-legacy-webview [data-column-header-copy-name]:hover");
+    expect(dataGridColumnHeaderSource).toContain("background-color: rgba(255, 255, 255, 0.1);");
+    expect(dataGridColumnHeaderSource).toContain("html.sqdesk-legacy-webview.dark [data-column-header-copy-name]:hover");
+    expect(dataGridColumnHeaderSource).toContain("background-color: rgba(0, 0, 0, 0.1);");
+  });
+
+  it("keeps primary alpha utilities readable in legacy WebViews", () => {
+    expect(globalsCss).toContain("--sqdesk-primary-rgb: 23, 23, 23;");
+    expect(globalsCss).toContain("--sqdesk-primary-rgb: 46, 95, 166;");
+    expect(globalsCss).toContain(".bg-primary\\/10");
+    expect(globalsCss).toContain("background-color: rgba(var(--sqdesk-primary-rgb), 0.1) !important;");
+    expect(globalsCss).toContain(".border-primary\\/30");
+    expect(globalsCss).toContain("border-color: rgba(var(--sqdesk-primary-rgb), 0.3) !important;");
+    expect(globalsCss).toContain(".hover\\:bg-primary\\/15:hover");
+    const activeConnectionSources = `${connectionTreeSource}\n${activeConnectionFilterSource}`;
+    expect(activeConnectionSources).toContain("showActiveConnectionsOnly");
+    expect(connectionTreeSource).toContain("text-primary bg-primary/10 border-primary/30");
+    expect(activeConnectionFilterSource).toContain("text-primary bg-primary/10 border-primary/30");
+  });
+
+  it("keeps foreground alpha utilities readable in legacy WebViews", () => {
+    // Tailwind v4 emits bg-foreground/10 as a full-color declaration with the
+    // real tint behind `@supports (color: color-mix(...))`. WebKit without
+    // color-mix() keeps the full-color one, so the update dialog tab badge
+    // rendered as a solid near-black pill on macOS 12 (Safari < 16.2).
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .bg-foreground\\/10");
+    expect(globalsCss).toContain("background-color: rgba(var(--sqdesk-foreground-rgb), 0.06) !important;");
+    expect(globalsCss).toContain("background-color: rgba(var(--sqdesk-foreground-rgb), 0.1) !important;");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .hover\\:bg-foreground\\/10:hover");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .hover\\:bg-foreground\\/15:hover");
+    expect(globalsCss).toContain("border-color: rgba(var(--sqdesk-foreground-rgb), 0.2) !important;");
+    expect(globalsCss).toContain("border-color: rgba(var(--sqdesk-foreground-rgb), 0.8) !important;");
+  });
+
+  it("orders foreground dark-mode fallbacks after hover fallbacks", () => {
+    // hover and dark overrides tie on specificity: the later dark rule has to
+    // win over the hover rule, and dark:hover has to win over both.
+    const hover = globalsCss.indexOf("html.sqdesk-legacy-webview .hover\\:bg-foreground\\/15:hover");
+    const dark = globalsCss.indexOf("html.sqdesk-legacy-webview.dark .dark\\:bg-foreground\\/20");
+    const darkHover = globalsCss.indexOf("html.sqdesk-legacy-webview.dark .dark\\:hover\\:bg-foreground\\/25:hover");
+
+    expect(hover).toBeGreaterThan(-1);
+    expect(dark).toBeGreaterThan(hover);
+    expect(darkHover).toBeGreaterThan(dark);
+  });
+
+  it("pairs every foreground theme color with a legacy rgb token", () => {
+    // A theme redefining --foreground without --sqdesk-foreground-rgb would tint
+    // legacy alpha utilities with the default theme's foreground instead.
+    const foregroundDefs = globalsCss.match(/--foreground: rgb\(\d+ \d+ \d+\);/g) ?? [];
+    expect(foregroundDefs.length).toBeGreaterThan(0);
+    const lines = globalsCss.split("\n");
+    let paired = 0;
+    for (const [index, line] of lines.entries()) {
+      if (/^\s*--foreground: rgb\(\d+ \d+ \d+\);$/.test(line)) {
+        expect(lines[index + 1]).toMatch(/^\s*--sqdesk-foreground-rgb: \d+, \d+, \d+;$/);
+        paired += 1;
+      }
+    }
+    expect(paired).toBe(foregroundDefs.length);
+  });
+
+  it("keeps warning and destructive alpha utilities readable in legacy WebViews", () => {
+    // The shortcut cross-scope conflict badge (border-warning/30 bg-warning/10
+    // text-warning) rendered as a solid amber pill with invisible text on
+    // macOS 12 WebKit; the destructive alert badges degrade the same way.
+    expect(editorSettingsDialogSource).toContain("border-warning/30 bg-warning/10");
+    expect(globalsCss).toContain("--sqdesk-warning-rgb: 217, 119, 6;");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .bg-warning\\/10");
+    expect(globalsCss).toContain("background-color: rgba(var(--sqdesk-warning-rgb), 0.1) !important;");
+    expect(globalsCss).toContain("background-color: rgba(var(--sqdesk-warning-rgb), 0.05) !important;");
+    expect(globalsCss).toContain("border-color: rgba(var(--sqdesk-warning-rgb), 0.3) !important;");
+    expect(globalsCss).toContain("border-color: rgba(var(--sqdesk-warning-rgb), 0.15) !important;");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .bg-destructive\\/10");
+    expect(globalsCss).toContain("background-color: rgba(var(--destructive-rgb), 0.1) !important;");
+    expect(globalsCss).toContain("background-color: rgba(var(--destructive-rgb), 0.05) !important;");
+    expect(globalsCss).toContain("border-color: rgba(var(--destructive-rgb), 0.3) !important;");
+    expect(globalsCss).toContain("html.sqdesk-legacy-webview .focus-visible\\:bg-destructive\\/10:focus-visible");
+  });
+
+  it("pairs every warning theme color with a legacy rgb token", () => {
+    const warningDefs = globalsCss.match(/--warning: rgb\(\d+ \d+ \d+\);/g) ?? [];
+    expect(warningDefs.length).toBeGreaterThan(0);
+    const lines = globalsCss.split("\n");
+    let paired = 0;
+    for (const [index, line] of lines.entries()) {
+      if (/^\s*--warning: rgb\(\d+ \d+ \d+\);$/.test(line)) {
+        expect(lines[index + 1]).toMatch(/^\s*--sqdesk-warning-rgb: \d+, \d+, \d+;$/);
+        paired += 1;
+      }
+    }
+    expect(paired).toBe(warningDefs.length);
+  });
+
+  it("keeps the active app tab painted in legacy WebViews", () => {
+    // The active pill background is an inline custom property holding a
+    // color-mix() value; on WebKit without color-mix() it invalidates at
+    // computed-value time and the active tab renders with no background.
+    expect(tabPresentationSource).toContain("appTabActiveBackground");
+    // The legacy branch must not lean on var() inside the inline custom
+    // property: old WebKit fails to substitute that, so it resolves the token.
+    expect(tabPresentationSource).toContain('getPropertyValue("--sqdesk-foreground-rgb")');
+    expect(tabPresentationSource).toContain('return "color-mix(in srgb, var(--foreground) 18%, var(--background))";');
+    expect(editorGroupTabBarSource).toContain("appTabActiveBackground()");
+    expect(appTabBarCssSource).toContain("var(--app-tab-hover-background, rgba(var(--sqdesk-foreground-rgb), 0.08))");
+    expect(appTabBarCssSource).toContain('html.sqdesk-legacy-webview .vertical-tab-layout .app-tab-pill:not(.tab-group-tab)[data-active-tab="true"]');
+  });
+
+  it("keeps legacy tab triggers connected to the configured corner style", () => {
+    const tabsTriggerRule = globalsCss.match(/\[data-slot="tabs-trigger"\] \{([\s\S]*?)\n  \}/)?.[1];
+
+    expect(tabsTriggerRule).toContain("border-radius: var(--sqdesk-radius-fixed-6);");
+  });
+
+  it("loads connection dialog media fallbacks without CSS transformation", () => {
+    expect(desktopIndexSource).toContain('href="/connection-dialog-legacy.css"');
+    expect(connectionDialogLegacyCss).toContain("@media (min-width: 640px)");
+    expect(connectionDialogLegacyCss).toContain("@media (min-width: 1024px)");
+    expect(connectionDialogLegacyCss).toContain("html.sqdesk-legacy-webview .connection-db-picker-grid");
+    expect(connectionDialogLegacyCss).toContain('html.sqdesk-legacy-webview [data-slot="dialog-content"].connection-dialog-content--config');
+    expect(connectionDialogLegacyCss).toContain("min-width: 38rem !important;");
+    expect(connectionDialogLegacyCss).toContain("width: 0 !important;");
+    expect(connectionDialogLegacyCss).toContain("grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)) !important;");
+    expect(connectionDialogLegacyCss).toContain('[data-slot="dialog-content"].connection-dialog-content--config');
+    expect(connectionDialogLegacyCss).toMatch(/\[data-slot="dialog-content"\]\.connection-dialog-content--config\s*\{[\s\S]*?width: calc\(100vw - 2rem\) !important;[\s\S]*?min-width: 38rem !important;[\s\S]*?height: 720px !important;[\s\S]*?max-width: 880px !important;[\s\S]*?\}/);
+    expect(connectionDialogLegacyCss).toContain("height: 720px !important;");
+    expect(connectionDialogLegacyCss).toContain('[data-slot="dialog-content"].connection-dialog-content--config .connection-form-body');
+    expect(connectionDialogLegacyCss).toContain("align-content: start !important;");
+    expect(connectionDialogSource).toContain("connection-dialog-footer");
+    expect(connectionDialogSource).toContain("connection-dialog-test-status");
+    expect(connectionDialogLegacyCss).toContain('[data-slot="dialog-content"].connection-dialog-content--config .connection-dialog-footer');
+    expect(connectionDialogLegacyCss).toContain("flex-wrap: nowrap !important;");
+    expect(connectionDialogLegacyCss).toContain('[data-slot="dialog-content"].connection-dialog-content--config .connection-dialog-test-status');
+    expect(connectionDialogLegacyCss).toContain("min-width: 12rem !important;");
+    expect(connectionDialogSource).toContain("connection-url-params-row--compact");
+    expect(connectionDialogSource).toContain("connection-url-params-row--with-hint");
+    expect(connectionDialogSource).toContain("connection-url-params-label");
+    expect(connectionDialogLegacyCss).toContain('[data-slot="dialog-content"].connection-dialog-content--config .connection-url-params-row--compact');
+    expect(connectionDialogLegacyCss).toContain("align-items: center !important;");
+    expect(connectionDialogLegacyCss).toContain('[data-slot="dialog-content"].connection-dialog-content--config .connection-url-params-row--with-hint .connection-url-params-label');
+    expect(connectionDialogLegacyCss).toContain("margin-top: 0.5rem !important;");
+    expect(connectionDialogLegacyCss).not.toContain("minmax(8rem, 1fr)");
+    expect(connectionDialogLegacyCss).toContain(".connection-db-picker-option");
+    expect(connectionDialogLegacyCss).not.toContain("width >=");
+    expect(connectionDialogSource).not.toContain("@media (min-width: 640px)");
+  });
+
+  it("keeps the sidebar table tree scrollbar unchanged outside legacy WebViews", () => {
+    expect(connectionTreeSource).toContain('class="sidebar-tree-scrollbar"');
+    expect(connectionTreeSource).toMatch(/\.sidebar-tree-scrollbar \{[\s\S]*?opacity: 0;/);
+    expect(connectionTreeSource).toContain("html.sqdesk-legacy-webview .sidebar-tree-scrollbar");
+    expect(connectionTreeSource).toMatch(/html\.sqdesk-legacy-webview \.sidebar-tree-scrollbar \{[\s\S]*?opacity: 0\.9;/);
+    expect(connectionTreeSource).toContain("html.sqdesk-legacy-webview .sidebar-tree-scrollbar__thumb");
+    expect(connectionTreeSource).toContain("background: rgba(82, 82, 82, 0.42);");
+    expect(connectionTreeSource).toContain("html.sqdesk-legacy-webview.dark .sidebar-tree-scrollbar__thumb");
+    expect(connectionTreeSource).toContain("background: rgba(212, 212, 216, 0.42);");
+  });
+
+  it("keeps AI table scrollbars visible without OKLCH color mixing", () => {
+    const thumbStart = aiAssistantSource.indexOf(".ai-markdown :deep(.ai-markdown-table-wrap::-webkit-scrollbar-thumb) {");
+    const hoverStart = aiAssistantSource.indexOf(".ai-markdown :deep(.ai-markdown-table-wrap:hover::-webkit-scrollbar-thumb) {");
+    const legacyStart = aiAssistantSource.indexOf("html.sqdesk-legacy-webview.dark .ai-markdown", hoverStart);
+    const thumb = aiAssistantSource.slice(thumbStart, hoverStart);
+    const hover = aiAssistantSource.slice(hoverStart, legacyStart);
+
+    expect(thumbStart).toBeGreaterThan(-1);
+    expect(hoverStart).toBeGreaterThan(thumbStart);
+    expect(legacyStart).toBeGreaterThan(hoverStart);
+    expect(thumb.indexOf("background: rgba(82, 82, 82, 0.28);")).toBeGreaterThan(-1);
+    expect(thumb.indexOf("background: rgba(82, 82, 82, 0.28);")).toBeLessThan(thumb.indexOf("background: color-mix(in oklch, var(--foreground) 28%, transparent);"));
+    expect(hover.indexOf("background: rgba(82, 82, 82, 0.45);")).toBeGreaterThan(-1);
+    expect(hover.indexOf("background: rgba(82, 82, 82, 0.45);")).toBeLessThan(hover.indexOf("background: color-mix(in oklch, var(--foreground) 45%, transparent);"));
+    expect(aiAssistantSource).toContain("background: rgba(212, 212, 216, 0.28);");
+    expect(aiAssistantSource).toContain("background: rgba(212, 212, 216, 0.45);");
+  });
+
+  it("keeps structure and table-info scrollbars visible without OKLab color mixing", () => {
+    const sources = [dataGridSource, dataGridTableInfoPanelsSource, tableStructureEditorSource];
+    const thumbRules = sources.flatMap((source) => [...source.matchAll(/[^{}]+::-webkit-scrollbar-thumb(?:\)|)\s*\{[^{}]+\}/g)].map((match) => match[0])).filter((rule) => rule.includes("color-mix(in oklab, var(--foreground) 30%, transparent)"));
+    const hoverRules = sources.flatMap((source) => [...source.matchAll(/[^{}]+::-webkit-scrollbar-thumb:hover(?:\)|)\s*\{[^{}]+\}/g)].map((match) => match[0])).filter((rule) => rule.includes("color-mix(in oklab, var(--foreground) 48%, transparent)"));
+
+    expect(thumbRules).toHaveLength(6);
+    expect(hoverRules).toHaveLength(6);
+    for (const rule of thumbRules) {
+      expect(rule.indexOf("background: rgba(82, 82, 82, 0.3);")).toBeGreaterThan(-1);
+      expect(rule.indexOf("background: rgba(82, 82, 82, 0.3);")).toBeLessThan(rule.indexOf("background: color-mix(in oklab, var(--foreground) 30%, transparent);"));
+    }
+    for (const rule of hoverRules) {
+      expect(rule.indexOf("background: rgba(82, 82, 82, 0.48);")).toBeGreaterThan(-1);
+      expect(rule.indexOf("background: rgba(82, 82, 82, 0.48);")).toBeLessThan(rule.indexOf("background: color-mix(in oklab, var(--foreground) 48%, transparent);"));
+    }
+
+    const horizontalThumbStart = tableStructureEditorSource.indexOf(".structure-horizontal-scrollbar__thumb {");
+    const horizontalHoverStart = tableStructureEditorSource.indexOf(".structure-horizontal-scrollbar:hover .structure-horizontal-scrollbar__thumb,", horizontalThumbStart);
+    const horizontalThumb = tableStructureEditorSource.slice(horizontalThumbStart, horizontalHoverStart);
+    const horizontalHover = tableStructureEditorSource.slice(horizontalHoverStart, tableStructureEditorSource.indexOf("/* Editable values", horizontalHoverStart));
+    expect(horizontalThumb.indexOf("background: rgba(82, 82, 82, 0.3);")).toBeGreaterThan(-1);
+    expect(horizontalThumb.indexOf("background: rgba(82, 82, 82, 0.3);")).toBeLessThan(horizontalThumb.indexOf("background: color-mix(in oklab, var(--foreground) 30%, transparent);"));
+    expect(horizontalHover.indexOf("background: rgba(82, 82, 82, 0.48);")).toBeGreaterThan(-1);
+    expect(horizontalHover.indexOf("background: rgba(82, 82, 82, 0.48);")).toBeLessThan(horizontalHover.indexOf("background: color-mix(in oklab, var(--foreground) 48%, transparent);"));
+
+    expect(dataGridSource).toMatch(/html\.sqdesk-legacy-webview\.dark \.ddl-code::-webkit-scrollbar-thumb\s*\{\s*background: rgba\(212, 212, 216, 0\.3\);/);
+    expect(dataGridSource).toMatch(/html\.sqdesk-legacy-webview\.dark \.ddl-code::-webkit-scrollbar-thumb:hover\s*\{\s*background: rgba\(212, 212, 216, 0\.48\);/);
+    expect(dataGridTableInfoPanelsSource).toMatch(/html\.sqdesk-legacy-webview\.dark \.table-info-scroller::-webkit-scrollbar-thumb\s*\{\s*background: rgba\(212, 212, 216, 0\.3\);/);
+    expect(dataGridTableInfoPanelsSource).toMatch(/html\.sqdesk-legacy-webview\.dark \.table-info-scroller::-webkit-scrollbar-thumb:hover\s*\{\s*background: rgba\(212, 212, 216, 0\.48\);/);
+    const structureLegacyThumbStart = tableStructureEditorSource.indexOf("html.sqdesk-legacy-webview.dark .structure-ddl-editor .cm-scroller::-webkit-scrollbar-thumb,");
+    const structureLegacyHoverStart = tableStructureEditorSource.indexOf("html.sqdesk-legacy-webview.dark .structure-ddl-editor .cm-scroller::-webkit-scrollbar-thumb:hover,", structureLegacyThumbStart);
+    const structureLegacyThumb = tableStructureEditorSource.slice(structureLegacyThumbStart, structureLegacyHoverStart);
+    const structureLegacyHover = tableStructureEditorSource.slice(structureLegacyHoverStart);
+    expect(structureLegacyThumbStart).toBeGreaterThan(-1);
+    expect(structureLegacyHoverStart).toBeGreaterThan(structureLegacyThumbStart);
+    expect(structureLegacyThumb).toContain("html.sqdesk-legacy-webview.dark .structure-card-scroller::-webkit-scrollbar-thumb,");
+    expect(structureLegacyThumb).toContain("html.sqdesk-legacy-webview.dark .structure-table-scroller::-webkit-scrollbar-thumb,");
+    expect(structureLegacyThumb).toContain("html.sqdesk-legacy-webview.dark .structure-horizontal-scrollbar__thumb");
+    expect(structureLegacyThumb).toContain("background: rgba(212, 212, 216, 0.3);");
+    expect(structureLegacyHover).toContain("html.sqdesk-legacy-webview.dark .structure-card-scroller::-webkit-scrollbar-thumb:hover,");
+    expect(structureLegacyHover).toContain("html.sqdesk-legacy-webview.dark .structure-table-scroller::-webkit-scrollbar-thumb:hover,");
+    expect(structureLegacyHover).toContain("html.sqdesk-legacy-webview.dark .structure-horizontal-scrollbar:hover .structure-horizontal-scrollbar__thumb,");
+    expect(structureLegacyHover).toContain("html.sqdesk-legacy-webview.dark .structure-horizontal-scrollbar--dragging .structure-horizontal-scrollbar__thumb");
+    expect(structureLegacyHover).toContain("background: rgba(212, 212, 216, 0.48);");
+  });
+
+  it("keeps selected tiles readable in WebViews without color-mix support", () => {
+    const fallbackStart = globalsCss.indexOf("@supports not (background-color: color-mix(in srgb, black 10%, transparent))");
+    const choiceFallback = globalsCss.indexOf(".sqdesk-choice-selected", fallbackStart);
+    const tileFallback = globalsCss.indexOf(".sqdesk-tile-selected", fallbackStart);
+    const nextSupports = globalsCss.indexOf("@supports (height: 100dvh)", fallbackStart);
+
+    expect(fallbackStart).toBeGreaterThan(-1);
+    expect(choiceFallback).toBeGreaterThan(fallbackStart);
+    expect(tileFallback).toBeGreaterThan(fallbackStart);
+    expect(choiceFallback).toBeLessThan(tileFallback);
+    expect(tileFallback).toBeLessThan(nextSupports);
+    expect(globalsCss.slice(fallbackStart, tileFallback)).toContain("background-color: rgba(23, 23, 23, 0.08) !important;");
+    expect(globalsCss.slice(fallbackStart, tileFallback)).toContain("color: rgb(23, 23, 23) !important;");
+    expect(globalsCss.slice(fallbackStart, tileFallback)).toContain(".sqdesk-choice-selected .text-muted-foreground");
+    expect(globalsCss.slice(fallbackStart, tileFallback)).toContain(".dark .sqdesk-choice-selected");
+    expect(globalsCss.slice(fallbackStart, nextSupports)).toContain("background-color: rgba(23, 23, 23, 0.08) !important;");
+    expect(globalsCss.slice(fallbackStart, nextSupports)).toContain("color: rgb(23, 23, 23) !important;");
+    expect(globalsCss.slice(fallbackStart, nextSupports)).toContain(".dark .sqdesk-tile-selected");
+  });
+
+  it("keeps the driver manager category navigation scoped to legacy WebViews", () => {
+    const fallbackStart = driverStoreDialogSource.indexOf("html.sqdesk-legacy-webview .driver-store-tab");
+    const fallbackEnd = driverStoreDialogSource.indexOf("@media (max-width: 900px)", fallbackStart);
+    const fallback = driverStoreDialogSource.slice(fallbackStart, fallbackEnd);
+
+    expect(driverStoreDialogSource).toContain("data-driver-category-nav");
+    expect(driverStoreDialogSource).toContain("driver-store-agent-results min-w-0 flex-1 overflow-y-auto sm:pl-4");
+    expect(fallbackStart).toBeGreaterThan(-1);
+    expect(fallbackEnd).toBeGreaterThan(fallbackStart);
+    expect(fallback).toContain(".driver-store-tab");
+    expect(fallback).toContain("margin-top: 1.25rem !important;");
+    expect(fallback).toContain(".driver-store-agent-tab:not([hidden])");
+    expect(fallback).toContain(".driver-store-jdbc-tab:not([hidden])");
+    expect(fallback).toContain(".driver-store-storage-tab:not([hidden])");
+    expect(fallback).toContain("gap: 1.25rem !important;");
+    expect(fallback).not.toContain(".driver-store-tab .space-y-");
+    expect(fallback).toContain("[data-driver-category-nav]");
+    expect(fallback).toContain("width: 10rem !important;");
+    expect(fallback).toContain("flex-direction: column !important;");
+    expect(fallback).toContain("overflow-y: auto !important;");
+    expect(fallback).toContain('[data-driver-category-nav] > button[aria-current="page"]');
+    expect(fallback).toContain(".driver-store-agent-results");
+    expect(fallback).toContain("width: 0 !important;");
+    expect(fallback).toContain("flex: 1 1 0% !important;");
+  });
+
+  it("keeps driver manager local import buttons large enough to target", () => {
+    const fallbackStart = driverStoreDialogSource.indexOf("html.sqdesk-legacy-webview .driver-store-local-import-button");
+    const fallbackEnd = driverStoreDialogSource.indexOf("@media (max-width: 900px)", fallbackStart);
+    const fallback = driverStoreDialogSource.slice(fallbackStart, fallbackEnd);
+
+    expect(driverStoreAgentRowSource.match(/driver-store-local-import-button h-7 w-7 rounded-md text-xs text-muted-foreground/g)?.length).toBe(1);
+    expect(driverStoreAgentRowSource.match(/variant="ghost"\n\s+class="driver-store-local-import-button/g)?.length).toBe(1);
+    expect(driverStoreDialogSource).toContain("<DriverStoreAgentRow");
+    expect(fallback).toContain(".driver-store-local-import-button");
+    expect(fallback).toContain("width: 2rem !important;");
+    expect(fallback).toContain("height: 2rem !important;");
+    expect(fallback).toContain(".driver-store-local-import-button svg");
+    expect(fallback).toContain("width: 1rem !important;");
+    expect(fallback).toContain("height: 1rem !important;");
+  });
+
+  it("keeps tunnel profile selection readable in legacy WebViews", () => {
+    expect(tunnelProfileManagerSource).toContain("profile.id === selectedId ? 'tunnel-profile-option--selected border-primary bg-primary/5'");
+    expect(tunnelProfileManagerSource).toContain("html.sqdesk-legacy-webview .tunnel-profile-option--selected");
+    expect(tunnelProfileManagerSource).toContain("background-color: var(--muted) !important;");
+    expect(tunnelProfileManagerSource).toContain("color: var(--foreground) !important;");
+    expect(tunnelProfileManagerSource).toContain("html.sqdesk-legacy-webview .tunnel-profile-option--selected .text-muted-foreground");
+  });
+
+  it("keeps transport layer selection readable in legacy WebViews", () => {
+    const fallbackStart = connectionDialogSource.indexOf("html.sqdesk-legacy-webview .connection-db-category-option--selected");
+    const fallbackEnd = connectionDialogSource.indexOf(".connection-db-picker-option", fallbackStart);
+    const fallback = connectionDialogSource.slice(fallbackStart, fallbackEnd);
+
+    expect(connectionDialogSource).toContain("connection-transport-layer-option--selected border-primary bg-primary/5");
+    expect(fallback).toContain(".connection-transport-layer-option--selected");
+    expect(fallback).toContain("background-color: rgba(23, 23, 23, 0.08) !important;");
+    expect(fallback).toContain(".dark .connection-transport-layer-option--selected");
+  });
+
+  it("keeps dark switches visible in legacy WebViews", () => {
+    const fallbackStart = switchSource.indexOf('html.sqdesk-legacy-webview.dark .sqdesk-switch[data-state="unchecked"] .sqdesk-switch-thumb');
+    const fallback = switchSource.slice(fallbackStart);
+
+    expect(fallbackStart).toBeGreaterThan(-1);
+    expect(fallback).toContain('html.sqdesk-legacy-webview.dark .sqdesk-switch[data-state="unchecked"] .sqdesk-switch-thumb');
+    expect(fallback).toContain("background-color: rgb(215, 215, 219) !important;");
+    expect(fallback).toContain("html.sqdesk-legacy-webview.dark .sqdesk-switch {");
+    expect(fallback).toContain("background-color: rgba(110, 110, 114, 0.44) !important;");
+    expect(fallback).toContain("border-color: rgb(208, 208, 214) !important;");
+    expect(fallback).toContain("background-color: rgb(19, 20, 22) !important;");
+  });
+
+  it("keeps native number input steppers scoped to legacy WebViews", () => {
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview input[type="number"]');
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview input[type="number"]:not([class*="appearance-none"])::-webkit-inner-spin-button');
+    expect(globalsCss).not.toContain('input[type="number"]::-webkit-inner-spin-button');
+    expect(globalsCss).toContain("-webkit-appearance: inner-spin-button !important;");
+    expect(globalsCss).not.toContain("width: 1.25rem !important;");
+    expect(globalsCss).not.toContain("min-height: 1.4rem !important;");
+    expect(globalsCss).not.toContain("-webkit-transform: scale(1.45);");
+    expect(globalsCss).not.toContain("transform: scale(1.45);");
+    expect(globalsCss).toContain('html.sqdesk-legacy-webview input[type="number"]:not([class*="appearance-none"]):disabled::-webkit-inner-spin-button');
+  });
+
+  it("keeps the schema diff dialog inline sizing working in legacy WebViews", () => {
+    // The shared DialogContent base carries max-w-sm, whose legacy !important cap
+    // outranks the dialog's inline width/max-width styles: the normal state then
+    // renders at its min-w floor and the maximize toggle collapses to 24rem wide.
+    // The rescue rules must sit after the max-w-* caps to win by source order.
+    const fallbackStart = globalsCss.indexOf("html.sqdesk-legacy-webview .sm\\:block");
+    const splitpanesStart = globalsCss.indexOf("/* Splitpanes */");
+    const fallback = globalsCss.slice(fallbackStart, splitpanesStart);
+    const maxWsmCap = fallback.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-content"][class~="max-w-sm"]');
+    const normalRule = fallback.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-content"].sqdesk-schema-diff-dialog {');
+    const maximizedRule = fallback.indexOf('html.sqdesk-legacy-webview [data-slot="dialog-content"].sqdesk-schema-diff-dialog.sqdesk-dialog-maximized {');
+
+    expect(fallbackStart).toBeGreaterThan(-1);
+    expect(splitpanesStart).toBeGreaterThan(fallbackStart);
+    expect(maxWsmCap).toBeGreaterThan(-1);
+    expect(normalRule).toBeGreaterThan(maxWsmCap);
+    expect(maximizedRule).toBeGreaterThan(normalRule);
+    expect(fallback.slice(normalRule, maximizedRule)).toContain("max-width: calc(100vw - 2rem) !important;");
+    expect(fallback.slice(normalRule, maximizedRule)).toContain("max-height: calc(var(--sqdesk-viewport-height) - 2rem) !important;");
+    expect(fallback.slice(maximizedRule)).toContain("width: calc(100vw - 2rem) !important;");
+    expect(fallback.slice(maximizedRule)).toContain("height: calc(var(--sqdesk-viewport-height) - 2rem) !important;");
+    expect(fallback.slice(maximizedRule)).toContain("max-width: none !important;");
+    expect(fallback.slice(maximizedRule)).toContain("max-height: none !important;");
+    expect(fallback.slice(maximizedRule)).toContain("border-radius: 0 !important;");
+    expect(schemaDiffDialogSource).toContain("'flex flex-col overflow-hidden sqdesk-schema-diff-dialog'");
+    expect(schemaDiffDialogSource).toContain("isMaximized ? 'sqdesk-dialog-maximized min-w-0' : 'min-w-[800px] resize'");
+  });
+
+  it("keeps settings field stacks spaced in legacy WebViews", () => {
+    const fallbackStart = editorSettingsDialogSource.indexOf("html.sqdesk-legacy-webview .settings-layout");
+    const fallbackEnd = editorSettingsDialogSource.indexOf("@media (max-width: 760px)", fallbackStart);
+    const fallback = editorSettingsDialogSource.slice(fallbackStart, fallbackEnd);
+
+    expect(fallbackStart).toBeGreaterThan(-1);
+    expect(fallbackEnd).toBeGreaterThan(fallbackStart);
+    expect(fallback).not.toContain(".settings-layout .space-y-");
+    expect(fallback).toContain('.settings-layout [data-slot="select-trigger"][data-size="default"]:not(.h-7)');
+    expect(fallback).toContain("height: 2rem !important;");
+    expect(fallback).toContain('.settings-layout [data-slot="select-trigger"].h-9');
+    expect(fallback).toContain('.settings-layout [data-slot="select-trigger"][data-size="sm"],');
+    expect(fallback).toContain('.settings-layout [data-slot="select-trigger"].h-7');
+    expect(fallback).toContain("height: 1.75rem !important;");
+    expect(editorSettingsDialogSource).toContain('SelectTrigger class="col-span-2" inputClass="h-8 text-xs"');
+    expect(editorSettingsDialogSource).not.toContain('SelectTrigger class="col-span-2 h-8 text-xs"');
+    expect(fallback).toContain(".settings-layout .settings-shortcut-row");
+    expect(fallback).toContain("grid-template-columns: minmax(0, 1fr) auto !important;");
+    expect(fallback).toContain(".settings-layout .settings-shortcut-actions");
+    expect(fallback).toContain("justify-self: end !important;");
+    expect(editorSettingsDialogSource).toContain("settings-shortcut-controls flex items-center justify-end gap-1.5");
+    expect(editorSettingsDialogSource).toContain("settings-shortcut-action-button h-7 w-7");
+    expect(editorSettingsDialogSource).toContain("html.sqdesk-legacy-webview .settings-shortcut-row:hover .settings-shortcut-action-button");
+    expect(editorSettingsDialogSource).toContain("opacity: 1 !important;");
+    expect(fallback).toContain(".settings-layout .settings-shortcut-controls");
+    expect(fallback).toContain("flex-direction: row !important;");
+    expect(fallback).toContain("justify-content: flex-end !important;");
+    expect(editorSettingsDialogSource).toContain("settings-export-number-input h-9 w-28 [&::-webkit-inner-spin-button]:appearance-none");
+    expect(editorSettingsDialogSource).toContain("settings-export-number-input h-9 w-32 [&::-webkit-inner-spin-button]:appearance-none");
+    expect(editorSettingsDialogSource).not.toContain("\n.settings-export-number-input {");
+    expect(fallback).toContain(".settings-layout .settings-export-number-input");
+    expect(fallback).toContain("line-height: 1.25rem !important;");
+    expect(fallback).toContain("-webkit-appearance: inner-spin-button !important;");
+    expect(fallback).toContain("::-webkit-inner-spin-button");
+    expect(editorSettingsDialogSource).toContain("settings-mcp-config-tabs");
+    expect(editorSettingsDialogSource).toContain("settings-mcp-config-tab");
+    expect(fallback).toContain(".settings-layout .settings-mcp-config-tabs");
+    expect(fallback).toContain("gap: 0.25rem !important;");
+    expect(fallback).toContain(".settings-layout .settings-mcp-config-tab");
+    expect(fallback).toContain("flex: 0 0 auto !important;");
+    expect(fallback).toContain("min-width: max-content !important;");
+    expect(editorSettingsDialogSource).toContain('class="settings-ai-back-button"');
+    expect(fallback).toContain(".settings-ai-back-button");
+    expect(fallback).toContain("margin-left: -0.625rem !important;");
+    expect(fallback).toContain(".settings-about-section-header");
+    expect(fallback).toContain("justify-content: space-between !important;");
+    expect(fallback).toContain(".settings-about-section-actions");
+    expect(fallback).toContain("margin-left: auto !important;");
+  });
+
+  it("uses a runtime capability check instead of an OKLCH-only CSS proxy", () => {
+    expect(legacyWebViewSource).toContain("color-mix");
+    expect(legacyWebViewSource).toContain("has-selector");
+    expect(legacyWebViewSource).toContain("dynamic-viewport");
+    expect(legacyWebViewSource).toContain("min-function");
+    expect(legacyWebViewSource).toContain("sqdesk-legacy-webview");
+    expect(mainSource).toContain("applyLegacyWebViewClass();");
+  });
+});

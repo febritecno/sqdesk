@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = ["src-tauri", "crates/sqdesk-core", "crates/sqdesk-driver-agent", "crates/sqdesk-driver-support", "crates/sqdesk-driver-elasticsearch", "crates/sqdesk-driver-mongodb", "crates/sqdesk-driver-mysql", "crates/sqdesk-driver-postgres", "crates/sqdesk-driver-redis", "crates/sqdesk-driver-sqlserver", "crates/sqdesk-drivers", "crates/sqdesk-sql", "crates/sqdesk-sql-core", "crates/sqdesk-sql-data", "crates/sqdesk-sql-dialect", "crates/sqdesk-sql-schema", "crates/sqdesk-plugin-runtime", "crates/sqdesk-formats", "crates/sqdesk-types", "crates/sqdesk-platform", "crates/sqdesk-ai-provider", "crates/sqdesk-sqlite-worker", "crates/sqdesk-tauri-consul", "crates/sqdesk-tauri-schema"]
+exclude = ["vendor/ctor", "vendor/dirs-sys", "vendor/pageant", "vendor/rumqttc", "vendor/tiberius", "vendor/webview2-com-sys", "vendor/wry"]
+
+[patch.crates-io]
+# The offline Win7 / Server 2012 R2 bundle links the WebView2 SDK 1.0.902.49
+# loader. Loaders >= 1.0.1054.31 import EventSetInformation, which Win7 and
+# Server 2012 R2 do not provide. Keep that loader in the source tree instead of
+# swapping a file inside the cargo registry, because a registry swap bypasses
+# compile caches and once shipped a binary linked against the wrong loader.
+webview2-com-sys = { path = "vendor/webview2-com-sys" }
+# Tauri 2.11 uses ctor 0.8, which excludes Rust's win7 vendor. This vendors
+# upstream rust-ctor#443 until tauri-utils moves to ctor 1.x.
+ctor = { path = "vendor/ctor" }
+# rumqttc 0.24 hardcodes MQTT 3.1.1; this patch adds MQTT 3.1 CONNECT encoding.
+rumqttc = { path = "vendor/rumqttc" }
+# Keep two small upstream crates on Win7-compatible API calls. Their current
+# Windows bindings otherwise import COMBASE or WinRT APIs unavailable on Win7.
+dirs-sys = { path = "vendor/dirs-sys" }
+pageant = { path = "vendor/pageant" }
+# Wry 0.55 probes and creates WebView2 with a null browser folder. Pass the
+# bundled Fixed Runtime path explicitly so Windows 7 does not fall back to an
+# unavailable system Runtime. The vendored copy also intercepts the WebView2
+# F6 "Focus Next Pane" accelerator to prevent a black screen on frameless
+# Overlay-titlebar windows, and registers a ProcessFailed handler that
+# auto-recovers the webview when the renderer process fails while the host
+# process stays alive (black screen after an overnight idle session, see
+# vendor/wry/src/webview2/mod.rs). Recovery is layered by process kind
+# (browser exit is fatal, GPU exits are self-healed by WebView2) and bounded
+# by a cooldown plus a maximum reload budget. It also re-owns clipboard
+# writes performed by the WebView2 browser process on the host window so
+# copies show up in Windows Clipboard History / Win+V
+# (MicrosoftEdge/WebView2Feedback#5650, see
+# vendor/wry/src/webview2/clipboard_history.rs).
+wry = { path = "vendor/wry" }
+tokio-postgres = { git = "https://github.com/t8y2/tokio-postgres-gaussdb.git", rev = "ac8ad476de59093d33ab9f294531c956e0c6a724" }
+postgres-types = { git = "https://github.com/t8y2/tokio-postgres-gaussdb.git", rev = "ac8ad476de59093d33ab9f294531c956e0c6a724" }
+postgres-protocol = { git = "https://github.com/t8y2/tokio-postgres-gaussdb.git", rev = "ac8ad476de59093d33ab9f294531c956e0c6a724" }
+# Temporary compatibility patches for deprecated sha256_password accounts and
+# rustls dangerous-mode connections to legacy certificates. Remove after upstream support lands.
+mysql_async = { git = "https://github.com/zipg/mysql_async.git", rev = "4a9e60a62f5a48e35ef9ccc9fc8277d5012b19dd" }
+# Preserve readable SQL Server result sets when a row contains an unpaired
+# UTF-16 surrogate, or varchar/text bytes that are invalid in the column's
+# collation (replaced with U+FFFD, no BOM sniffing). Remove after the behavior
+# is available in upstream tiberius.
+tiberius = { path = "vendor/tiberius" }
+
+[profile.dev.package."*"]
+# Dependencies are never breakpoint-inspected in dev; line tables keep
+# backtraces resolvable while shrinking dev/test build time and artifacts.
+debug = "line-tables-only"
+
+[profile.release]
+panic = "abort"
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

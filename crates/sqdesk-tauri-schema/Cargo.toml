@@ -1,0 +1,9 @@
+[package]
+name = "sqdesk-tauri-schema"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88.0"
+
+[dependencies]
+sqdesk-core = { path = "../sqdesk-core", default-features = false }
+tauri = "2.10.3"

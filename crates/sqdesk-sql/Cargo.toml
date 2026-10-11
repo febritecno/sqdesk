@@ -1,0 +1,18 @@
+[package]
+name = "sqdesk-sql"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[features]
+default = []
+duckdb-sidecar = ["sqdesk-sql-schema/duckdb-sidecar"]
+openapi = ["sqdesk-sql-data/openapi", "sqdesk-types/openapi"]
+
+[dependencies]
+sqdesk-sql-core = { path = "../sqdesk-sql-core" }
+sqdesk-sql-data = { path = "../sqdesk-sql-data" }
+sqdesk-sql-dialect = { path = "../sqdesk-sql-dialect" }
+sqdesk-sql-schema = { path = "../sqdesk-sql-schema" }
+sqdesk-types = { path = "../sqdesk-types", default-features = false }
