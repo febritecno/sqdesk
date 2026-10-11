@@ -1,6 +1,6 @@
 [package]
 name = "sqdesk"
-version = "0.1.0"
+version = "0.6.40"
 description = "Open-source database management tool"
 authors = ["skyler"]
 license = "Apache-2.0"

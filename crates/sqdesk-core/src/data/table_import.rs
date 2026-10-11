@@ -25,6 +25,7 @@ use sqlparser::dialect::{GenericDialect, MsSqlDialect, MySqlDialect, OracleDiale
 use sqlparser::parser::Parser;
 
 use crate::connection::{task_client_session_id, AppState, PoolKind};
+#[cfg(feature = "duckdb-sidecar")]
 use crate::db;
 use crate::models::connection::DatabaseType;
 use crate::sql::SqlParsingOptions;
@@ -606,10 +607,12 @@ async fn duckdb_import_context_for_source(
     }
 }
 
+#[cfg(any(feature = "duckdb-sidecar", test))]
 fn duckdb_sql_string_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
+#[cfg(any(feature = "duckdb-sidecar", test))]
 fn duckdb_parquet_scan_sql(path: &str, limit: usize, offset: Option<usize>) -> String {
     let mut sql = format!("SELECT * FROM read_parquet({}) LIMIT {}", duckdb_sql_string_literal(path), limit);
     if let Some(offset) = offset {
@@ -618,10 +621,12 @@ fn duckdb_parquet_scan_sql(path: &str, limit: usize, offset: Option<usize>) -> S
     sql
 }
 
+#[cfg(feature = "duckdb-sidecar")]
 fn duckdb_parquet_count_sql(path: &str) -> String {
     format!("SELECT COUNT(*) AS sqdesk_total_rows FROM read_parquet({})", duckdb_sql_string_literal(path))
 }
 
+#[cfg(feature = "duckdb-sidecar")]
 fn duckdb_count_result(result: &db::QueryResult) -> Result<usize, String> {
     let value = result
         .rows
@@ -2481,6 +2486,8 @@ impl ImportRowSource {
             let stream = DuckDbParquetRowStream::open(context, file_path, first_batch_rows).await?;
             return Ok(Self::DuckDb { stream: Box::new(stream) });
         }
+        #[cfg(not(feature = "duckdb-sidecar"))]
+        let _ = duckdb_context;
         let parsed = parse_import_file_with_options_and_text_columns(
             file_path,
             Some(source_format),

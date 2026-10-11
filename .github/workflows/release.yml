@@ -9,7 +9,6 @@ on:
       tag:
         description: "Release tag"
         required: true
-        default: "v0.1"
 
 permissions:
   contents: write
@@ -61,6 +60,12 @@ jobs:
           workspaces: ". -> target"
 
       - run: pnpm install --frozen-lockfile
+
+      # Ad-hoc sign the macOS bundle. Without any signature Gatekeeper reports a
+      # downloaded Apple Silicon app as "damaged" instead of offering Open Anyway.
+      - name: Use ad-hoc macOS signing
+        if: startsWith(matrix.platform, 'macos')
+        run: echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
 
       - uses: tauri-apps/tauri-action@v0
         env:

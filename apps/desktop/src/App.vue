@@ -4151,7 +4151,6 @@ onUnmounted(() => {
                 @save-all-tab-close="handleSaveAllPendingTabClose"
                 @discard-all-tab-close="handleDiscardAllPendingTabClose"
                 @cancel-tab-close="cancelPendingAppClose"
-                @detach-tab="detachTab"
               >
                 <DriverStorePage v-if="driverStoreTabOpen" v-show="driverStoreActive" v-model:active-tab="driverStoreActiveTab" class="flex-1 min-h-0" :focus-target="driverStoreFocus" />
                 <EditorSettingsPage
